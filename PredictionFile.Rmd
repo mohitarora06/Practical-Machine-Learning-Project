@@ -1,0 +1,90 @@
+---
+title: "Weight Lifting Exercise Execution Performance"
+output: html_document
+---
+
+##Summary
+In this project, our goal is be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.
+
+##Data Processing 
+
+Loading data and keeping only those variables which actually make a difference in the prediction. Such as removing the variables which mostly have NA's in it and also those variables which do not have much variance and also which do not have effect on the prediction. 
+
+```{r, echo = TRUE}
+#Loading required packages
+library(caret)
+library(randomForest)
+library(rattle)
+
+#Reading the data 
+trainingData <- read.csv("pml-training.csv", na.strings = "NA")
+testingData <- read.csv("pml-testing.csv", na.strings = "NA")
+
+#Removing the columns which has more than 95% as NA's in it.
+trainingData <- trainingData[, colSums(is.na(trainingData)) <=   0.95 * nrow(trainingData)]
+
+#Removing near zoer variance variables from the data.
+nsv <- nearZeroVar(trainingData)
+trainingData <- trainingData[, -nsv]
+
+#Removing variables which donot have effect on prediction such as time related variables.
+trainingData <- trainingData[, -c(1:6)]
+
+#Including only those variables in testing data which are present in training data.
+testingData <- testingData[, which(names(testingData) %in% colnames(trainingData))]
+
+#Creating a partition of data to get validation data set as well with 80% in training and 20% in validation.
+part <- createDataPartition(trainingData$classe, p = 0.8, list = FALSE)
+trainingSubset <- trainingData[part, ]
+validationSubset <- trainingData[-part, ]
+
+```
+
+###First Prediction Model: Using Decision Tree
+
+```{r, echo = TRUE}
+#Using Rpart model 
+rpartModel <- train(classe ~ ., data = trainingSubset, method = "rpart")
+
+#Using rattle library to create prediction tree
+fancyRpartPlot(rpartModel$finalModel, main = "Prediction Table")
+
+rpartPrediction <- predict(rpartModel, validationSubset)
+confusionMatrix(rpartPrediction, validationSubset$classe)
+```
+
+###Second Prediction Model : Using Random Forest Model
+
+```{r, echo = TRUE}
+#Using Rf model
+rfModel <- randomForest(classe ~ ., data = trainingSubset, method = "class")
+
+#Prediction on Validation Set
+rfValidationPrediction <- predict(rfModel, validationSubset, type = "class")
+confusionMatrix(rfValidationPrediction, validationSubset$classe)
+```
+
+As we can clearly see that Random forest model has much better accuracy as compared to Rpart model which use decision tree for prediction. RF model gave 99% accuracy for validation set as compared to only 50% by Rpart model.
+
+```{r, echo = TRUE}
+#Prediction on Testing data set
+rfTestPrediction <- predict(rfModel, testingData, type = "class")
+rfTestPrediction
+```
+
+###Submission
+
+```{r, echo = TRUE}
+#Writing files for submission
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(rfTestPrediction)
+```
