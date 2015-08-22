@@ -1,6 +1,7 @@
 ---
 title: "Weight Lifting Exercise Execution Performance"
-output: html_document
+author: "Mohit Arora"
+output: pdf_document
 ---
 
 ##Summary
